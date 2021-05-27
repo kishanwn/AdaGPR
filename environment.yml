@@ -1,0 +1,6 @@
+name: AdaGPR
+dependencies:
+  - numpy
+  - networkx
+  - pytorch
+  - scipy
