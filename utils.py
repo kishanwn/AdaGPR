@@ -81,23 +81,7 @@ def load_citation(dataset_str="cora"):
         ty_extended[test_idx_range-min(test_idx_range), :] = ty
         ty = ty_extended
 
-    #---
-    print("testt")
-    #adj = nx.adjacency_matrix(nx.from_dict_of_lists(graph))
-    gf = nx.from_dict_of_lists(graph)
-    ld= list(gf.degree())
-    print(ld[1][1])
-    print(len(ld))
-    max = 0
-    for it in range(len(ld)) :
-        if max < ld[it][1]:
-            max = ld[it][1]
-    print(max)
-    #print(np.max(ld,0))
-    #print(np.min(np.sum(adj.todense(), 1)))
-    #print(np.mean(np.sum(adj.todense(), 1)))
-    #print(np.max(np.sum(adj.todense(),1)))
-    #---
+
 
     features = sp.vstack((allx, tx)).tolil()
     features[test_idx_reorder, :] = features[test_idx_range, :]
