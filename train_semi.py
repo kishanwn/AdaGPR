@@ -44,21 +44,20 @@ ArrResults = np.zeros([numSims])
 for j in range(numSims):
     # Load data
     adj, features, labels,idx_train,idx_val,idx_test = load_citation(args.data)
-    cudaid = "cuda:"+str(args.dev)
+    cudaid = "cpu" #"cuda:"+str(args.dev)
     device = torch.device(cudaid)
     features = features.to(device)
     adj = adj.to(device)
-
     gpr_coeff = args.GPR_coeff
-    pw = torch.zeros([gpr_coeff,adj.size(1),adj.size(1)]).to(device)
-    print(pw.size())
-    I = torch.eye(adj.size(1)).to(device)
-    pw[0, :, :] = I
-    for i in range(gpr_coeff - 1):
-        pw[i + 1, :, :] = torch.spmm(adj, pw[i, :, :])
 
-    pw = pw.to(device)
-    print(pw.size())
+    # Precompute all powers of the normalized adjacency matrix
+    adj_powers = torch.zeros([gpr_coeff,adj.size(1),adj.size(1)]).to(device)
+    I = torch.eye(adj.size(1)).to(device)
+    adj_powers[0, :, :] = I
+    for i in range(gpr_coeff - 1):
+        adj_powers[i + 1, :, :] = torch.spmm(adj, adj_powers[i, :, :])
+    adj_powers = adj_powers.to(device)
+
     checkpt_file = 'pretrained/'+uuid.uuid4().hex+'.pt'
     print(cudaid,checkpt_file)
     print(int(labels.max()) + 1)
@@ -72,7 +71,7 @@ for j in range(numSims):
                     alpha=args.alpha,
                     variant=args.variant,
                     gpr_coeff= gpr_coeff,
-                    pw = pw,
+                    adj_powers = adj_powers,
                     device_id=cudaid).to(device)
 
     optimizer = optim.Adam([
@@ -83,7 +82,7 @@ for j in range(numSims):
     def train():
         model.train()
         optimizer.zero_grad()
-        output = model(features,adj)
+        output = model(features)
         acc_train = accuracy(output[idx_train], labels[idx_train].to(device))
         loss_train = F.nll_loss(output[idx_train], labels[idx_train].to(device))
         #loss_train = accuracy(output[idx_train], labels[idx_train].to(device))
@@ -95,7 +94,7 @@ for j in range(numSims):
     def validate():
         model.eval()
         with torch.no_grad():
-            output = model(features,adj)
+            output = model(features)
             loss_val = F.nll_loss(output[idx_val], labels[idx_val].to(device))
             acc_val = accuracy(output[idx_val], labels[idx_val].to(device))
             return loss_val.item(),acc_val.item()
@@ -104,18 +103,12 @@ for j in range(numSims):
         model.load_state_dict(torch.load(checkpt_file))
         model.eval()
         with torch.no_grad():
-            output = model(features, adj)
+            output = model(features)
             loss_test = F.nll_loss(output[idx_test], labels[idx_test].to(device))
             acc_test = accuracy(output[idx_test], labels[idx_test].to(device))
 
-            l = np.zeros([args.layer, args.telportParam])
-            for i in range(args.layer):
-                # print(model.convs[i].pg_coeffs.detach().numpy().T)
-                l[i, :] = model.convs[i].cf.cpu().detach().numpy()[:].T
-                # L0.append(str(model.convs[i].cf.detach().numpy()[:].T).replace(' ', ' & ').replace('[','').replace(']','').replace('\n','') )
-            print(l)
 
-            return loss_test.item(),acc_test.item(),l
+            return loss_test.item(),acc_test.item()
 
     t_total = time.time()
     bad_counter = 0
@@ -151,10 +144,6 @@ for j in range(numSims):
     print("Train cost: {:.4f}s".format(time.time() - t_total))
     print('Load {}th epoch'.format(best_epoch))
     print("Test" if args.test else "Val","acc.:{:.1f}".format(acc*100))
-    res = [args.seed, acc, best_epoch]
-    ArrResults[j] = acc
-    filename2 = './semi_supervised_GPR_sparsemax/citeseer_GPR_sparsemax_iter_seed_acc_' + '_' + str(args.seed) + '_' + str(args.layer) + '_' + str(args.hidden) + '_' + str(args.alpha) + '_' + str(args.lamda) + '_' + str(args.dropout) + '_' + str(args.wd1) + '_' + str(args.wd2) + '_' + str(args.telportParam) + '.mat'
-    sio.savemat(filename2, {'res': ArrResults})
 
 
 
