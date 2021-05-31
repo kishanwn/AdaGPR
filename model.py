@@ -11,7 +11,7 @@ from sparsemax_ import Sparsemax
 
 class GraphConvolution_sparsemax_exp(nn.Module):
 
-    def __init__(self, in_features, out_features, num_nodes, residual=False, variant=False,gpr_coeff=10,pw=None,device_id="cpu"):
+    def __init__(self, in_features, out_features, num_nodes, residual=False, variant=False,gpr_coeff=10,adj_powers=None,device_id="cpu"):
         super(GraphConvolution_sparsemax_exp, self).__init__()
         self.variant = variant
         if self.variant:
@@ -25,7 +25,7 @@ class GraphConvolution_sparsemax_exp(nn.Module):
         self.weight = Parameter(torch.FloatTensor(self.in_features,self.out_features))
         self.reset_parameters()
         self.gpr_coeff = gpr_coeff
-        self.pw = pw
+        self.adj_powers = adj_powers
 
         # create random coefficients for pageranks
         self.pg_coeffs = nn.Parameter(torch.randn( self.gpr_coeff, 1 ))
@@ -40,7 +40,7 @@ class GraphConvolution_sparsemax_exp(nn.Module):
         self.weight.data.uniform_(-stdv, stdv)
 
     def reset_parametersWcoeffs(self):
-        stdv = 1. / math.sqrt(self.telportParam)
+        stdv = 1. / math.sqrt(self.gpr_coeff)
         self.pg_coeffs.data.uniform_(-stdv, stdv)
 
 
@@ -49,8 +49,8 @@ class GraphConvolution_sparsemax_exp(nn.Module):
 
         predcitedPg= 0
         self.cf = self.sparsemax_fn(torch.exp(self.pg_coeffs))
-        for i in range(self.gru_coeff):
-            predcitedPg += self.cf[i]*self.pw[i,:,:]
+        for i in range(self.gpr_coeff):
+            predcitedPg += self.cf[i]*self.adj_powers[i,:,:]
         predcitedPg= predcitedPg.squeeze()
 
         hi = torch.spmm(predcitedPg, input)
@@ -67,13 +67,13 @@ class GraphConvolution_sparsemax_exp(nn.Module):
 
 
 class AdaGPR(nn.Module):
-    def __init__(self, nfeat, nlayers,nhidden, adj, nclass, dropout, lamda, alpha, variant,gpr_coeff,pw,device_id):
+    def __init__(self, nfeat, nlayers,nhidden, adj, nclass, dropout, lamda, alpha, variant,gpr_coeff,adj_powers,device_id):
         super(AdaGPR, self).__init__()
         self.convs = nn.ModuleList()
         num_nodes = adj.size(0)
         i = 0
         for _ in range(nlayers):
-            self.convs.append(GraphConvolution_sparsemax_exp(nhidden, nhidden,num_nodes,variant=variant,gpr_coeff=gpr_coeff,pw=pw,device_id=device_id  ) )
+            self.convs.append(GraphConvolution_sparsemax_exp(nhidden, nhidden,num_nodes,variant=variant,gpr_coeff=gpr_coeff,adj_powers=adj_powers,device_id=device_id  ) )
             i += 1
         self.fcs = nn.ModuleList()
         self.fcs.append(nn.Linear(nfeat, nhidden))
@@ -85,9 +85,9 @@ class AdaGPR(nn.Module):
         self.alpha = alpha
         self.lamda = lamda
         self.gpr_coeff = gpr_coeff
-        self.pw = pw
+        self.adj_powers = adj_powers
 
-    def forward(self, x, adj):
+    def forward(self, x):
         _layers = []
         x = F.dropout(x, self.dropout, training=self.training)
         layer_inner = self.act_fn(self.fcs[0](x))
