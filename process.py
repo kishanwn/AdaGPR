@@ -58,9 +58,6 @@ def full_load_citation(dataset_str):
     features[test_idx_reorder, :] = features[test_idx_range, :]
     adj = nx.adjacency_matrix(nx.from_dict_of_lists(graph))
 
-    # -----
-    print("testtt")
-    # -----
 
     labels = np.vstack((ally, ty))
     labels[test_idx_reorder, :] = labels[test_idx_range, :]
@@ -138,26 +135,8 @@ def full_load_data(dataset_name, splits_file_path=None):
             [label for _, label in sorted(G.nodes(data='label'), key=lambda x: x[0])])
 
     features.astype(float)
-    print(sum(features))
     features = preprocess_features(features)
-    print(adj)
-    #---
-    print("testt")
-    #gf = nx.from_dict_of_lists(G)
-    ld= list(G.degree())
-    print(ld[1][1])
-    print(len(ld))
-    print(ld)
-    max = 0
-    for it in range(len(ld)) :
-        if max < ld[it][1]:
-            max = ld[it][1]
-    print(max)
-    #adj = nx.adjacency_matrix(nx.from_dict_of_lists(graph))
-    #print(np.min(np.sum(adj.todense(), 1)))
-    #print(np.mean(np.sum(adj.todense(), 1)))
-    #print(np.max(np.sum(adj.todense(),1)))
-    #---
+
 
     g = adj
   
