@@ -132,7 +132,7 @@ cfs_list = []
 for i in range(10):
     datastr = args.data
     splitstr = 'splits/'+args.data+'_split_0.6_0.2_'+str(i)+'.npz'
-    accs = train(datastr, splitstr)
+    acc_list.append(train(datastr,splitstr))
     print(i,": {:.2f}".format(acc_list[-1]))
 print("Train cost: {:.4f}s".format(time.time() - t_total))
 print("Test acc.:{:.2f}".format(np.mean(acc_list)))
